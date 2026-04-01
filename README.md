@@ -55,3 +55,24 @@
 - - 📄 [Ver implementação deployment.yaml:](./questao4.yaml)
 
 ---
+
+## Questão 5 — Migração VB.NET para C# com DDD
+
+### Decisões de design
+
+- **`Uf` como Value Object** — encapsula e valida o código da UF, garantindo que nunca exista uma UF inválida ou vazia no domínio
+- **Strategy Pattern para alíquotas** — cada regra fiscal é uma classe separada que implementa `IAliquotaStrategy`, seguindo o princípio Open/Closed — novas UFs podem ser adicionadas sem alterar código existente
+- **`DefaultAliquota` sempre por último** — como seu `AplicaPara` retorna `true` para qualquer UF, ela deve ser registrada no DI após as demais para funcionar corretamente como fallback
+- **`CalculadoraIcms` como serviço de domínio** — centraliza a lógica de cálculo, recebe as strategies via injeção de dependência e trata erros de entrada (valor <= 0, UF nula)
+- **Tratamento de erros explícito** — exceções com mensagens claras substituem comportamentos silenciosos do código VB.NET original
+- **Registro no IoC em ordem** — as strategies devem ser registradas no `Program.cs` na ordem correta (SP → RJ → Default), garantindo que o fallback só seja acionado quando nenhuma regra específica se aplicar
+
+- - 📄 [Ver implementação](./questao5.cs)
+
+---
+
+## Questão 6 — Comunicação Técnica para Stakeholders
+
+Optei por uma abordagem direta e objetiva, explicando o problema técnico em linguagem acessível para negócio, sem jargões desnecessários, e propondo uma solução incremental que não bloqueia as entregas planejadas.
+
+- - 📄 [Ver implementação](./questao6.txt)
