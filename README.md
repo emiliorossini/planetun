@@ -23,6 +23,19 @@
 - **Idempotência via `X-Request-Id`** — armazena IDs já processados em um `HashSet`, garantindo que a mesma requisição não seja processada duas vezes
 - **Retorno 200 imediato com `Task.Run`** — o processamento é feito de forma assíncrona via fila interna, evitando timeout no caller
 
-- - 📄 [Ver implementação](./questao2.cs)
+- 📄 [Ver implementação](./questao2.cs)
+
+---
+
+## Questão 3 — Pipeline CI/CD no Azure DevOps
+
+### Decisões de design
+
+- **4 stages separados** — Build, CodeQuality, Docker e Deploy, cada um com responsabilidade única e dependência explícita entre eles
+- **Variáveis por ambiente** — `dev` e `prod` são separados automaticamente pela branch (`develop` = dev, `main` = prod)
+- **SonarCloud com cobertura** — o relatório OpenCover gerado nos testes é enviado ao SonarCloud para análise de qualidade
+- **Rolling update no AKS** — garante zero downtime no deploy, promovendo apenas após health check bem-sucedido
+
+- - 📄 [Ver implementação](./questao3.yaml)
 
 ---
