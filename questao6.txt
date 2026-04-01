@@ -1,0 +1,7 @@
+Olá PM,
+Queria te alertar sobre um ponto técnico importante no serviço de consignado: ele está com alto acoplamento e sem testes automatizados, o que torna cada nova entrega mais arriscada (uma mudança em um ponto pode impactar outros de forma inesperada em produção). 
+Para não travar o roadmap com uma refatoração grande, proponho uma abordagem incremental: conforme formos desenvolvendo as novas features, aproveitamos para melhorar gradualmente o código envolvido, adicionando testes e reduzindo o acoplamento. 
+Dessa forma continuamos entregando valor sem acumular mais risco técnico.
+Me avisa se quiser conversar melhor sobre isso!
+Abs,
+Emilio
