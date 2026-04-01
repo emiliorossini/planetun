@@ -39,3 +39,19 @@
 - - 📄 [Ver implementação](./questao3.yaml)
 
 ---
+
+## Questão 4 — Dockerfile Multi-stage e Deployment K8s
+
+### Decisões de design
+
+- **Multi-stage build** — stage `build` usa a SDK completa, stage `runtime` usa apenas o ASP.NET runtime, resultando em imagem final menor
+- **Non-root user** — criação de usuário `appuser` sem privilégios de root, seguindo boas práticas de segurança em containers
+- **3 replicas** — garante alta disponibilidade e tolerância a falhas
+- **Liveness e Readiness probes** — liveness reinicia o container se travar, readiness remove do load balancer se não estiver pronto
+- **Resource limits** — evita que um container consuma recursos excessivos afetando outros pods
+- **ConfigMap + Secret** — variáveis de configuração separadas de credenciais sensíveis
+
+- - 📄 [Ver implementação Dockerfile](./questao4.dockerfile)
+- - 📄 [Ver implementação deployment.yaml:](./questao4.yaml)
+
+---
