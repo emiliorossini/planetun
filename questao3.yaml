@@ -1,0 +1,140 @@
+trigger:
+  branches:
+    include:
+      - main
+      - develop
+
+variables:
+  ${{ if eq(variables['Build.SourceBranchName'], 'main') }}:
+    environment: prod
+    acrRepository: 'meuservico-prod'
+    aksNamespace: 'production'
+  ${{ if eq(variables['Build.SourceBranchName'], 'develop') }}:
+    environment: dev
+    acrRepository: 'meuservico-dev'
+    aksNamespace: 'development'
+
+  acrName: 'meuacr.azurecr.io'
+  imageTag: '$(Build.BuildId)'
+
+stages:
+
+# ─── STAGE 1: Build + Restore + Testes ───────────────────────────────────────
+- stage: Build
+  displayName: 'Build e Testes Unitários'
+  jobs:
+  - job: BuildAndTest
+    pool:
+      vmImage: 'ubuntu-latest'
+    steps:
+    - task: UseDotNet@2
+      inputs:
+        packageType: 'sdk'
+        version: '8.x'
+
+    - script: dotnet restore
+      displayName: 'Restore'
+
+    - script: dotnet build --no-restore --configuration Release
+      displayName: 'Build'
+
+    - script: |
+        dotnet test --no-build --configuration Release \
+          --collect:"XPlat Code Coverage" \
+          -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=opencover
+      displayName: 'Testes Unitários'
+
+    - task: PublishTestResults@2
+      inputs:
+        testResultsFormat: 'VSTest'
+        testResultsFiles: '**/*.trx'
+
+    - task: PublishCodeCoverageResults@1
+      inputs:
+        codeCoverageTool: 'Cobertura'
+        summaryFileLocation: '**/coverage.opencover.xml'
+
+# ─── STAGE 2: SonarQube ──────────────────────────────────────────────────────
+- stage: CodeQuality
+  displayName: 'Análise de Qualidade - SonarQube'
+  dependsOn: Build
+  jobs:
+  - job: Sonar
+    pool:
+      vmImage: 'ubuntu-latest'
+    steps:
+    - task: UseDotNet@2
+      inputs:
+        packageType: 'sdk'
+        version: '8.x'
+
+    - task: SonarCloudPrepare@1
+      inputs:
+        SonarCloud: 'SonarCloudConnection'
+        organization: 'minha-org'
+        scannerMode: 'MSBuild'
+        projectKey: 'meu-projeto'
+        extraProperties: |
+          sonar.cs.opencover.reportsPaths=**/coverage.opencover.xml
+
+    - script: dotnet build --configuration Release
+      displayName: 'Build para Sonar'
+
+    - task: SonarCloudAnalyze@1
+
+    - task: SonarCloudPublish@1
+      inputs:
+        pollingTimeoutSec: '300'
+
+# ─── STAGE 3: Docker Build + Push ACR ────────────────────────────────────────
+- stage: Docker
+  displayName: 'Build e Push Docker para ACR'
+  dependsOn: CodeQuality
+  jobs:
+  - job: DockerBuildPush
+    pool:
+      vmImage: 'ubuntu-latest'
+    steps:
+    - task: Docker@2
+      displayName: 'Build e Push para ACR'
+      inputs:
+        command: 'buildAndPush'
+        containerRegistry: 'AzureContainerRegistry'
+        repository: '$(acrRepository)'
+        dockerfile: '**/Dockerfile'
+        tags: |
+          $(imageTag)
+          latest
+
+# ─── STAGE 4: Deploy AKS ─────────────────────────────────────────────────────
+- stage: Deploy
+  displayName: 'Deploy no AKS'
+  dependsOn: Docker
+  jobs:
+  - deployment: DeployAKS
+    displayName: 'Rolling Update no AKS'
+    pool:
+      vmImage: 'ubuntu-latest'
+    environment: '$(environment)'
+    strategy:
+      rolling:
+        maxParallel: 1
+        deploy:
+          steps:
+          - task: KubernetesManifest@0
+            displayName: 'Deploy Kubernetes'
+            inputs:
+              action: 'deploy'
+              kubernetesServiceConnection: 'AKSConnection-$(environment)'
+              namespace: '$(aksNamespace)'
+              manifests: 'k8s/deployment.yaml'
+              containers: '$(acrName)/$(acrRepository):$(imageTag)'
+
+          - task: Kubernetes@1
+            displayName: 'Health Check'
+            inputs:
+              connectionType: 'Kubernetes Service Connection'
+              kubernetesServiceEndpoint: 'AKSConnection-$(environment)'
+              namespace: '$(aksNamespace)'
+              command: 'rollout'
+              arguments: 'status deployment/meuservico --timeout=5m'
